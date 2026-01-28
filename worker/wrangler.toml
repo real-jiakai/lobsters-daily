@@ -1,0 +1,17 @@
+name = "lobsters-daily-worker"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+node_compat = true
+
+[triggers]
+crons = ["0 23 * * *"]
+
+[vars]
+GEMINI_BASE_URL = "https://api.ai-wave.org/gemini"
+GITHUB_REPO = "YOUR_USERNAME/lobsters-daily"
+GITHUB_BRANCH = "main"
+DIGEST_TOP_N = "10"
+
+# Set these as secrets via `wrangler secret put`:
+# wrangler secret put AI_WAVE_API_KEY
+# wrangler secret put GITHUB_TOKEN

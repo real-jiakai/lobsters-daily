@@ -1,0 +1,60 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  digests: CollectionEntry<'digests'>[];
+  currentDate: string;
+}
+
+const { digests, currentDate } = Astro.props;
+---
+
+{/* Overlay */}
+<div id="drawer-overlay" class="fixed inset-0 bg-black/50 z-40 hidden" />
+
+{/* Slide-out drawer */}
+<div id="drawer-panel" class="fixed top-0 left-0 bottom-0 w-64 bg-lobster-dark border-r border-white/10 z-50 transform -translate-x-full transition-transform duration-200 ease-out">
+  <div class="flex items-center justify-between p-4 border-b border-white/10">
+    <span class="text-sm font-bold text-lobster-muted uppercase tracking-wide">Posts</span>
+    <button id="drawer-close" class="p-1 text-lobster-muted hover:text-lobster-text" aria-label="Close navigation">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+  <nav class="p-4 space-y-1 overflow-y-auto max-h-[calc(100vh-4rem)]">
+    {digests.map((digest) => (
+      <a
+        href={digest.data.date === currentDate ? '#' : `/digest/${digest.data.date}`}
+        class:list={[
+          'block text-sm py-2 px-3 rounded no-underline transition-colors',
+          digest.data.date === currentDate
+            ? 'text-lobster-accent bg-white/10 font-medium'
+            : 'text-lobster-muted hover:text-lobster-text hover:bg-white/5',
+        ]}
+      >
+        {digest.data.date}
+      </a>
+    ))}
+  </nav>
+</div>
+
+<script>
+  const toggle = document.getElementById('drawer-toggle')!;
+  const overlay = document.getElementById('drawer-overlay')!;
+  const panel = document.getElementById('drawer-panel')!;
+  const close = document.getElementById('drawer-close')!;
+
+  function open() {
+    overlay.classList.remove('hidden');
+    panel.classList.remove('-translate-x-full');
+  }
+  function shut() {
+    panel.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
+  }
+
+  toggle.addEventListener('click', open);
+  overlay.addEventListener('click', shut);
+  close.addEventListener('click', shut);
+</script>

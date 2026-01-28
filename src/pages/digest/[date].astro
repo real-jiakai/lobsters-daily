@@ -1,0 +1,127 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import ArchiveNav from '../../components/ArchiveNav.astro';
+import MobileDrawer from '../../components/MobileDrawer.astro';
+
+export async function getStaticPaths() {
+  const digests = await getCollection('digests');
+  return digests.map((digest) => ({
+    params: { date: digest.data.date },
+    props: { digest },
+  }));
+}
+
+const { digest } = Astro.props;
+const { data } = digest;
+
+const allDigests = (await getCollection('digests')).sort(
+  (a, b) => b.data.date.localeCompare(a.data.date)
+);
+---
+
+<Base title={data.title}>
+  <button slot="header-extra" id="drawer-toggle" class="lg:hidden p-2 -ml-2 text-lobster-muted hover:text-lobster-text" aria-label="Open navigation">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  </button>
+
+  <MobileDrawer digests={allDigests} currentDate={data.date} />
+
+  <div class="lg:flex lg:gap-6">
+    <ArchiveNav digests={allDigests} currentDate={data.date} />
+
+    {/* ── Main Content ── */}
+    <main class="flex-1 min-w-0">
+      <a href="/" class="text-lobster-muted text-sm no-underline hover:text-lobster-accent mb-4 inline-block">← Back to latest</a>
+
+      <h1 class="text-2xl font-bold mb-1">{data.title}</h1>
+      <p class="text-lobster-muted text-sm mb-6">{data.date}</p>
+
+      {/* Overview list */}
+      <div class="bg-lobster-surface rounded-lg p-4 sm:p-5 border border-white/5 mb-8">
+        <h2 class="text-sm font-bold text-lobster-accent uppercase tracking-wide mb-3">今日概览</h2>
+        <ol class="space-y-1.5 text-sm">
+          {data.items.map((item) => (
+            <li class="flex gap-2">
+              <span class="text-lobster-accent font-mono shrink-0">{item.rank}.</span>
+              <a
+                href={`#item-${item.rank}`}
+                class="text-lobster-text/80 no-underline hover:text-lobster-accent transition-colors"
+              >
+                {item.one_line_summary}
+              </a>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      {/* Detailed items */}
+      <div class="space-y-6">
+        {data.items.map((item) => (
+          <article id={`item-${item.rank}`} class="bg-lobster-surface rounded-lg p-4 sm:p-5 border border-white/5 scroll-mt-20">
+            <div class="flex items-start gap-2 sm:gap-3 mb-3">
+              <span class="text-lobster-accent font-bold text-lg min-w-6">#{item.rank}</span>
+              <div>
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener"
+                  class="text-base sm:text-lg font-semibold text-lobster-text no-underline hover:text-lobster-accent"
+                >
+                  {item.title}
+                </a>
+                <div class="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                  {item.tags.map((tag) => (
+                    <span class="text-xs bg-white/10 rounded px-2 py-0.5 text-lobster-muted">{tag}</span>
+                  ))}
+                  <span class="text-xs text-lobster-muted">
+                    ↑{item.score} · {item.comment_count} comments
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="sm:ml-9 space-y-3 text-sm leading-relaxed">
+              <div>
+                <h3 class="text-lobster-accent font-semibold text-xs uppercase tracking-wide mb-1">文章摘要</h3>
+                <p class="text-lobster-text/80">{item.article_summary}</p>
+              </div>
+              <div>
+                <h3 class="text-lobster-accent font-semibold text-xs uppercase tracking-wide mb-1">社区讨论</h3>
+                <p class="text-lobster-text/80">{item.discussion_summary}</p>
+              </div>
+              <a
+                href={item.lobsters_url}
+                target="_blank"
+                rel="noopener"
+                class="inline-block text-xs text-lobster-muted hover:text-lobster-accent no-underline"
+              >
+                View on Lobsters →
+              </a>
+            </div>
+          </article>
+        ))}
+      </div>
+    </main>
+
+    {/* ── Right Sidebar: TOC ── */}
+    <aside class="hidden xl:block w-64 shrink-0">
+      <div class="sticky top-20">
+        <h2 class="text-sm font-bold text-lobster-muted uppercase tracking-wide mb-3">Top 10</h2>
+        <nav class="space-y-1 text-sm">
+          {data.items.map((item) => (
+            <a
+              href={`#item-${item.rank}`}
+              class="block py-1.5 px-2 rounded text-lobster-muted no-underline hover:text-lobster-text hover:bg-white/5 transition-colors leading-snug"
+            >
+              <span class="text-lobster-accent font-mono mr-1">{item.rank}.</span>
+              <span class="line-clamp-2">{item.title}</span>
+            </a>
+          ))}
+        </nav>
+      </div>
+    </aside>
+  </div>
+</Base>
