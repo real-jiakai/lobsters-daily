@@ -176,6 +176,56 @@ ${commentsText}
   }
 }
 
+// ── Gemini summarization for discussion-only posts (Ask Lobsters, etc.) ──
+
+async function summarizeDiscussionOnly(
+  ai: GoogleGenAI,
+  commentsText: string,
+  title: string
+): Promise<{ article_summary: string; discussion_summary: string; one_line_summary: string }> {
+  const prompt = `你是一位技术新闻摘要编辑，负责总结来自 Lobsters (lobste.rs) 的社区讨论帖。
+
+这是一个社区讨论帖（没有外部链接），标题为: ${title}
+
+社区讨论（热门评论）:
+${commentsText}
+
+请提供以下信息:
+
+1. **一句话总结** (one_line_summary): 用一句简洁的中文概括这个讨论帖的主题和核心内容（不超过80字）。
+2. **帖子摘要** (article_summary): 用3-5句中文总结这个讨论帖的主题背景，以及社区成员分享的主要内容和观点。
+3. **讨论亮点** (discussion_summary): 用2-4句中文总结讨论中最有趣或最有价值的回复，包括：
+   - 讨论的整体氛围
+   - 排名靠前的3-5条评论的核心观点
+   - 任何有趣的项目、工具或个人分享
+
+以如下 JSON 格式回复:
+{"one_line_summary": "...", "article_summary": "...", "discussion_summary": "..."}
+
+全部使用简体中文回复，不要包含 markdown 格式。`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        temperature: 0.3,
+        responseMimeType: 'application/json',
+      },
+    });
+
+    const text = response.text ?? '';
+    return JSON.parse(text);
+  } catch (e) {
+    console.error('Gemini summarization failed:', e);
+    return {
+      one_line_summary: '[摘要生成失败]',
+      article_summary: '[摘要生成失败]',
+      discussion_summary: '[摘要生成失败]',
+    };
+  }
+}
+
 // ── Generate markdown content ───────────────────────────────────────
 
 export function generateMarkdown(date: string, items: DigestItem[]): string {
@@ -305,15 +355,57 @@ export async function runDigest(env: Env): Promise<string> {
     const story = stories[i];
     console.log(`Processing #${i + 1}: ${story.title}`);
 
-    // Fetch article and comments in parallel
-    const [articleContent, commentsText] = await Promise.all([
-      fetchArticleContent(story.url),
-      fetchComments(story.comments_url),
-    ]);
+    // Check if this is a discussion-only post (no external URL or URL equals Lobsters URL)
+    const isDiscussionOnly = !story.url || story.url === story.comments_url;
 
-    // If article content fetch failed entirely, skip Gemini and mark as unavailable
-    if (articleContent === null) {
-      console.log(`  ⏭️ Skipping Gemini for #${i + 1} — article content unavailable`);
+    if (isDiscussionOnly) {
+      // Discussion-only post (Ask Lobsters, Show Lobsters, etc.)
+      // Use lobsters_url as the url so the title links to the discussion
+      console.log(`  📝 Discussion-only post detected, fetching comments only`);
+      const commentsText = await fetchComments(story.comments_url);
+      const summary = await summarizeDiscussionOnly(ai, commentsText, story.title);
+
+      digestItems.push({
+        rank: i + 1,
+        title: story.title,
+        url: story.comments_url,
+        lobsters_url: story.comments_url,
+        score: story.score,
+        comment_count: story.comment_count,
+        tags: story.tags,
+        one_line_summary: summary.one_line_summary,
+        article_summary: summary.article_summary,
+        discussion_summary: summary.discussion_summary,
+      });
+    } else {
+      // Normal post with external article
+      // Fetch article and comments in parallel
+      const [articleContent, commentsText] = await Promise.all([
+        fetchArticleContent(story.url),
+        fetchComments(story.comments_url),
+      ]);
+
+      // If article content fetch failed entirely, skip Gemini and mark as unavailable
+      if (articleContent === null) {
+        console.log(`  ⏭️ Skipping Gemini for #${i + 1} — article content unavailable`);
+        digestItems.push({
+          rank: i + 1,
+          title: story.title,
+          url: story.url,
+          lobsters_url: story.comments_url,
+          score: story.score,
+          comment_count: story.comment_count,
+          tags: story.tags,
+          one_line_summary: `⚠️ 无法获取文章内容（${story.title}）`,
+          article_summary: '无法获取文章内容，摘要不可用。',
+          discussion_summary: '由于文章内容无法获取，未进行总结。',
+        });
+        continue;
+      }
+
+      // Summarize with Gemini (1 call per item, includes both article + discussion)
+      const summary = await summarizeWithGemini(ai, articleContent, commentsText, story.title);
+
       digestItems.push({
         rank: i + 1,
         title: story.title,
@@ -322,28 +414,11 @@ export async function runDigest(env: Env): Promise<string> {
         score: story.score,
         comment_count: story.comment_count,
         tags: story.tags,
-        one_line_summary: `⚠️ 无法获取文章内容（${story.title}）`,
-        article_summary: '无法获取文章内容，摘要不可用。',
-        discussion_summary: '由于文章内容无法获取，未进行总结。',
+        one_line_summary: summary.one_line_summary,
+        article_summary: summary.article_summary,
+        discussion_summary: summary.discussion_summary,
       });
-      continue;
     }
-
-    // Summarize with Gemini (1 call per item, includes both article + discussion)
-    const summary = await summarizeWithGemini(ai, articleContent, commentsText, story.title);
-
-    digestItems.push({
-      rank: i + 1,
-      title: story.title,
-      url: story.url,
-      lobsters_url: story.comments_url,
-      score: story.score,
-      comment_count: story.comment_count,
-      tags: story.tags,
-      one_line_summary: summary.one_line_summary,
-      article_summary: summary.article_summary,
-      discussion_summary: summary.discussion_summary,
-    });
 
     // Respect rate limit: 3 req/s → wait ~400ms between Gemini calls
     await new Promise((r) => setTimeout(r, 400));
