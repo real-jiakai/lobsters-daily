@@ -229,7 +229,6 @@ ${commentsText}
 // ── Generate markdown content ───────────────────────────────────────
 
 export function generateMarkdown(date: string, items: DigestItem[]): string {
-  // Front matter
   const yamlItems = items
     .map(
       (item) => `  - rank: ${item.rank}
@@ -245,46 +244,12 @@ export function generateMarkdown(date: string, items: DigestItem[]): string {
     )
     .join('\n');
 
-  // Top-10 overview list
-  const overviewList = items
-    .map((item) => `${item.rank}. ${item.one_line_summary}`)
-    .join('\n');
-
-  // Detailed sections
-  const detailedSections = items
-    .map(
-      (item) => `## ${item.rank}. ${item.title}
-
-- **链接:** [${item.url}](${item.url})
-- **评分:** ↑${item.score} | **评论数:** ${item.comment_count} | **标签:** ${item.tags.join(', ')}
-- **讨论:** [Lobsters 讨论](${item.lobsters_url})
-
-### 文章摘要
-
-${item.article_summary}
-
-### 社区讨论
-
-${item.discussion_summary}`
-    )
-    .join('\n\n---\n\n');
-
   return `---
 title: "Lobsters Daily Digest — ${date}"
 date: "${date}"
 items:
 ${yamlItems}
 ---
-
-# 🦞 Lobsters 每日精选 — ${date}
-
-## 今日概览
-
-${overviewList}
-
----
-
-${detailedSections}
 `;
 }
 
@@ -355,8 +320,8 @@ export async function runDigest(env: Env): Promise<string> {
     const story = stories[i];
     console.log(`Processing #${i + 1}: ${story.title}`);
 
-    // Check if this is a discussion-only post (no external URL or URL equals Lobsters URL)
-    const isDiscussionOnly = !story.url || story.url === story.comments_url;
+    // Check if this is a discussion-only post (no external URL, URL equals Lobsters URL, or URL is a lobste.rs link)
+    const isDiscussionOnly = !story.url || story.url === story.comments_url || story.url.startsWith('https://lobste.rs/');
 
     if (isDiscussionOnly) {
       // Discussion-only post (Ask Lobsters, Show Lobsters, etc.)
