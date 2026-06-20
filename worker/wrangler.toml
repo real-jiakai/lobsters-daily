@@ -7,11 +7,9 @@ compatibility_flags = ["nodejs_compat"]
 crons = ["0 23 * * *"]
 
 [vars]
-GEMINI_BASE_URL = "https://www.ai-wave.org/gemini"
 GITHUB_REPO = "real-jiakai/lobsters-daily"
 GITHUB_BRANCH = "main"
 DIGEST_TOP_N = "10"
 
-# Set these as secrets via `wrangler secret put`:
-# wrangler secret put AI_WAVE_API_KEY
+# Set this as a secret via `wrangler secret put`:
 # wrangler secret put GITHUB_TOKEN

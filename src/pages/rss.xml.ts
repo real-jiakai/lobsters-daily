@@ -17,7 +17,7 @@ export async function GET(context: APIContext) {
 
     // Build description from top items
     const description = digest.data.items
-      .map((item, i) => `${i + 1}. ${item.one_line_summary}`)
+      .map((item, i) => `${i + 1}. ${item.title}`)
       .join('\n');
 
     return `    <item>
@@ -35,10 +35,10 @@ export async function GET(context: APIContext) {
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Lobsters Daily</title>
-    <description>Daily digest of top Lobsters stories, summarized by AI</description>
+    <description>Daily top 10 stories from Lobsters</description>
     <link>${site}</link>
     <atom:link href="${site}/rss.xml" rel="self" type="application/rss+xml"/>
-    <language>zh-CN</language>
+    <language>en</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
 ${items.join('\n')}
   </channel>

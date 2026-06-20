@@ -1,13 +1,16 @@
 # 🦞 Lobsters Daily
 
-Daily AI-summarized digest of top [Lobsters](https://lobste.rs) stories.
+Daily list of the top 10 [Lobsters](https://lobste.rs) stories. Just the links — no summaries, no noise.
+
+Inspired by [Hacker News Daily](https://www.daemonology.net/hn-daily/).
 
 ## Architecture
 
 - **Astro SSG** site on Cloudflare Pages (UnoCSS for styling)
-- **Cloudflare Worker** runs daily cron at 23:00 UTC
-- Worker fetches top 10 stories, gets article content, summarizes with Gemini Flash
-- Worker commits a new markdown file to this repo → triggers Pages rebuild
+- **Cloudflare Worker** runs a daily cron at 23:00 UTC
+- Worker fetches the top 10 stories from `lobste.rs/hottest.json` and commits a new markdown file to this repo → triggers a Pages rebuild
+
+Each story is stored as a title, its article URL, and its Lobsters discussion URL — that's all the site renders (a bulleted link list with a `(comments)` link per story).
 
 ## Setup
 
@@ -31,11 +34,10 @@ Connect this repo to Cloudflare Pages:
 cd worker
 pnpm install
 
-# Set secrets
-pnpm wrangler secret put GEMINI_API_KEY
+# Set the GitHub token secret
 pnpm wrangler secret put GITHUB_TOKEN
 
-# Edit wrangler.toml: set GITHUB_REPO, GEMINI_BASE_URL
+# Edit wrangler.toml: set GITHUB_REPO
 
 # Deploy
 pnpm run deploy
@@ -51,8 +53,6 @@ Create a fine-grained personal access token with:
 
 | Variable | Description |
 |---|---|
-| `GEMINI_API_KEY` | Gemini API key (secret) |
-| `GEMINI_BASE_URL` | Gemini API base URL |
 | `GITHUB_TOKEN` | GitHub PAT for committing (secret) |
 | `GITHUB_REPO` | `owner/repo` format |
 | `GITHUB_BRANCH` | Branch to commit to (default: `main`) |

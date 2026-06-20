@@ -11,8 +11,5 @@
     "tsx": "^4.21.0",
     "typescript": "^5.7.0",
     "wrangler": "^4.0.0"
-  },
-  "dependencies": {
-    "@google/genai": "^1.38.0"
   }
 }

@@ -10,8 +10,6 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const env: Env = {
-  AI_WAVE_API_KEY: process.env.AI_WAVE_API_KEY || '',
-  GEMINI_BASE_URL: 'https://www.ai-wave.org/gemini',
   GITHUB_TOKEN: '',
   GITHUB_REPO: '',
   GITHUB_BRANCH: 'main',

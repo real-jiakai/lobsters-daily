@@ -1,10 +1,6 @@
-import { GoogleGenAI } from '@google/genai';
-
 // ── Types ───────────────────────────────────────────────────────────
 
 export interface Env {
-  AI_WAVE_API_KEY: string;
-  GEMINI_BASE_URL: string;
   GITHUB_TOKEN: string;
   GITHUB_REPO: string;
   GITHUB_BRANCH: string;
@@ -14,30 +10,13 @@ export interface Env {
 interface LobstersItem {
   title: string;
   url: string;
-  score: number;
-  comment_count: number;
   comments_url: string;
-  tags: string[];
-  short_id: string;
-}
-
-interface LobstersComment {
-  comment: string;
-  commenting_user: { username: string };
-  score: number;
 }
 
 interface DigestItem {
-  rank: number;
   title: string;
   url: string;
   lobsters_url: string;
-  score: number;
-  comment_count: number;
-  tags: string[];
-  article_summary: string;
-  discussion_summary: string;
-  one_line_summary: string;
 }
 
 // ── Fetch Lobsters hottest ──────────────────────────────────────────
@@ -51,201 +30,19 @@ async function fetchHottest(topN: number): Promise<LobstersItem[]> {
   return items.slice(0, topN);
 }
 
-// ── Fetch with timeout helper ────────────────────────────────────────
-
-async function fetchWithTimeout(url: string, timeoutMs: number = 10000): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'lobsters-daily-digest/1.0' },
-      signal: controller.signal,
-    });
-    return res;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-// ── Fetch article content: pure.md → r.jina.ai → null ──────────────
-
-async function fetchArticleContent(url: string): Promise<string | null> {
-  // 1. Try pure.md (10s timeout)
-  try {
-    console.log(`  Fetching via pure.md: ${url}`);
-    const res = await fetchWithTimeout(`https://pure.md/${url}`, 10000);
-    if (res.ok) {
-      const text = await res.text();
-      if (text.trim().length > 100) return text.slice(0, 8000);
-    }
-    console.log(`  pure.md failed: HTTP ${res.status}`);
-  } catch (e) {
-    console.log(`  pure.md failed: ${e}`);
-  }
-
-  // 2. Fallback: r.jina.ai (10s timeout)
-  try {
-    console.log(`  Fallback to r.jina.ai: ${url}`);
-    const res = await fetchWithTimeout(`https://r.jina.ai/${url}`, 10000);
-    if (res.ok) {
-      const text = await res.text();
-      if (text.trim().length > 100) return text.slice(0, 8000);
-    }
-    console.log(`  r.jina.ai failed: HTTP ${res.status}`);
-  } catch (e) {
-    console.log(`  r.jina.ai failed: ${e}`);
-  }
-
-  // 3. Both failed
-  console.log(`  ❌ All fetch methods failed for: ${url}`);
-  return null;
-}
-
-// ── Fetch Lobsters comments ─────────────────────────────────────────
-
-async function fetchComments(commentsUrl: string): Promise<string> {
-  try {
-    const res = await fetch(`${commentsUrl}.json`, {
-      headers: { 'User-Agent': 'lobsters-daily-digest/1.0' },
-    });
-    if (!res.ok) return '[No comments available]';
-    const data: any = await res.json();
-    const comments: LobstersComment[] = data.comments || [];
-    const topComments = comments
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10)
-      .map((c) => `[${c.commenting_user.username} (↑${c.score})]: ${c.comment}`)
-      .join('\n\n');
-    return topComments.slice(0, 6000) || '[No comments]';
-  } catch (e) {
-    return `[Failed to fetch comments: ${e}]`;
-  }
-}
-
-// ── Gemini summarization ────────────────────────────────────────────
-
-async function summarizeWithGemini(
-  ai: GoogleGenAI,
-  articleContent: string,
-  commentsText: string,
-  title: string
-): Promise<{ article_summary: string; discussion_summary: string; one_line_summary: string }> {
-  const prompt = `你是一位技术新闻摘要编辑，负责总结来自 Lobsters (lobste.rs) 的技术文章及其社区讨论。
-
-文章标题: ${title}
-
-文章内容:
-${articleContent}
-
-社区讨论（热门评论）:
-${commentsText}
-
-请提供以下信息:
-
-1. **一句话总结** (one_line_summary): 用一句简洁的中文概括文章核心内容和要点（不超过80字）。
-2. **文章摘要** (article_summary): 用3-5句中文总结文章的主要内容、关键论点和技术细节。
-3. **讨论摘要** (discussion_summary): 用2-4句中文总结社区讨论的主要观点，包括：
-   - 讨论的整体情绪和态度
-   - 排名靠前的3-5条评论的核心观点
-   - 任何值得关注的争议或独到见解
-
-以如下 JSON 格式回复:
-{"one_line_summary": "...", "article_summary": "...", "discussion_summary": "..."}
-
-全部使用简体中文回复，不要包含 markdown 格式。`;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: {
-        temperature: 0.3,
-        responseMimeType: 'application/json',
-      },
-    });
-
-    const text = response.text ?? '';
-    return JSON.parse(text);
-  } catch (e) {
-    console.error('Gemini summarization failed:', e);
-    return {
-      one_line_summary: '[摘要生成失败]',
-      article_summary: '[摘要生成失败]',
-      discussion_summary: '[摘要生成失败]',
-    };
-  }
-}
-
-// ── Gemini summarization for discussion-only posts (Ask Lobsters, etc.) ──
-
-async function summarizeDiscussionOnly(
-  ai: GoogleGenAI,
-  commentsText: string,
-  title: string
-): Promise<{ article_summary: string; discussion_summary: string; one_line_summary: string }> {
-  const prompt = `你是一位技术新闻摘要编辑，负责总结来自 Lobsters (lobste.rs) 的社区讨论帖。
-
-这是一个社区讨论帖（没有外部链接），标题为: ${title}
-
-社区讨论（热门评论）:
-${commentsText}
-
-请提供以下信息:
-
-1. **一句话总结** (one_line_summary): 用一句简洁的中文概括这个讨论帖的主题和核心内容（不超过80字）。
-2. **帖子摘要** (article_summary): 用3-5句中文总结这个讨论帖的主题背景，以及社区成员分享的主要内容和观点。
-3. **讨论亮点** (discussion_summary): 用2-4句中文总结讨论中最有趣或最有价值的回复，包括：
-   - 讨论的整体氛围
-   - 排名靠前的3-5条评论的核心观点
-   - 任何有趣的项目、工具或个人分享
-
-以如下 JSON 格式回复:
-{"one_line_summary": "...", "article_summary": "...", "discussion_summary": "..."}
-
-全部使用简体中文回复，不要包含 markdown 格式。`;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: {
-        temperature: 0.3,
-        responseMimeType: 'application/json',
-      },
-    });
-
-    const text = response.text ?? '';
-    return JSON.parse(text);
-  } catch (e) {
-    console.error('Gemini summarization failed:', e);
-    return {
-      one_line_summary: '[摘要生成失败]',
-      article_summary: '[摘要生成失败]',
-      discussion_summary: '[摘要生成失败]',
-    };
-  }
-}
-
 // ── Generate markdown content ───────────────────────────────────────
 
 export function generateMarkdown(date: string, items: DigestItem[]): string {
   const yamlItems = items
     .map(
-      (item) => `  - rank: ${item.rank}
-    title: ${JSON.stringify(item.title)}
+      (item) => `  - title: ${JSON.stringify(item.title)}
     url: ${JSON.stringify(item.url)}
-    lobsters_url: ${JSON.stringify(item.lobsters_url)}
-    score: ${item.score}
-    comment_count: ${item.comment_count}
-    tags: [${item.tags.map((t) => JSON.stringify(t)).join(', ')}]
-    one_line_summary: ${JSON.stringify(item.one_line_summary)}
-    article_summary: ${JSON.stringify(item.article_summary)}
-    discussion_summary: ${JSON.stringify(item.discussion_summary)}`
+    lobsters_url: ${JSON.stringify(item.lobsters_url)}`
     )
     .join('\n');
 
   return `---
-title: "Lobsters Daily Digest — ${date}"
+title: "Lobsters Daily — ${date}"
 date: "${date}"
 items:
 ${yamlItems}
@@ -304,94 +101,24 @@ export async function runDigest(env: Env): Promise<string> {
 
   console.log(`Starting Lobsters daily digest for ${today}, top ${topN}`);
 
-  const ai = new GoogleGenAI({
-    apiKey: env.AI_WAVE_API_KEY,
-    httpOptions: { baseUrl: env.GEMINI_BASE_URL },
-  });
-
-  // 1. Fetch hottest stories
+  // Fetch hottest stories — this single call already has everything we show.
   const stories = await fetchHottest(topN);
   console.log(`Fetched ${stories.length} stories`);
 
-  // 2. Process each story
-  const digestItems: DigestItem[] = [];
+  const items: DigestItem[] = stories.map((story) => {
+    // Discussion-only posts (Ask/Show Lobsters, etc.) have no external article,
+    // so point the title at the Lobsters thread itself.
+    const isDiscussionOnly =
+      !story.url || story.url === story.comments_url || story.url.startsWith('https://lobste.rs/');
 
-  for (let i = 0; i < stories.length; i++) {
-    const story = stories[i];
-    console.log(`Processing #${i + 1}: ${story.title}`);
+    return {
+      title: story.title,
+      url: isDiscussionOnly ? story.comments_url : story.url,
+      lobsters_url: story.comments_url,
+    };
+  });
 
-    // Check if this is a discussion-only post (no external URL, URL equals Lobsters URL, or URL is a lobste.rs link)
-    const isDiscussionOnly = !story.url || story.url === story.comments_url || story.url.startsWith('https://lobste.rs/');
-
-    if (isDiscussionOnly) {
-      // Discussion-only post (Ask Lobsters, Show Lobsters, etc.)
-      // Use lobsters_url as the url so the title links to the discussion
-      console.log(`  📝 Discussion-only post detected, fetching comments only`);
-      const commentsText = await fetchComments(story.comments_url);
-      const summary = await summarizeDiscussionOnly(ai, commentsText, story.title);
-
-      digestItems.push({
-        rank: i + 1,
-        title: story.title,
-        url: story.comments_url,
-        lobsters_url: story.comments_url,
-        score: story.score,
-        comment_count: story.comment_count,
-        tags: story.tags,
-        one_line_summary: summary.one_line_summary,
-        article_summary: summary.article_summary,
-        discussion_summary: summary.discussion_summary,
-      });
-    } else {
-      // Normal post with external article
-      // Fetch article and comments in parallel
-      const [articleContent, commentsText] = await Promise.all([
-        fetchArticleContent(story.url),
-        fetchComments(story.comments_url),
-      ]);
-
-      // If article content fetch failed entirely, skip Gemini and mark as unavailable
-      if (articleContent === null) {
-        console.log(`  ⏭️ Skipping Gemini for #${i + 1} — article content unavailable`);
-        digestItems.push({
-          rank: i + 1,
-          title: story.title,
-          url: story.url,
-          lobsters_url: story.comments_url,
-          score: story.score,
-          comment_count: story.comment_count,
-          tags: story.tags,
-          one_line_summary: `⚠️ 无法获取文章内容（${story.title}）`,
-          article_summary: '无法获取文章内容，摘要不可用。',
-          discussion_summary: '由于文章内容无法获取，未进行总结。',
-        });
-        continue;
-      }
-
-      // Summarize with Gemini (1 call per item, includes both article + discussion)
-      const summary = await summarizeWithGemini(ai, articleContent, commentsText, story.title);
-
-      digestItems.push({
-        rank: i + 1,
-        title: story.title,
-        url: story.url,
-        lobsters_url: story.comments_url,
-        score: story.score,
-        comment_count: story.comment_count,
-        tags: story.tags,
-        one_line_summary: summary.one_line_summary,
-        article_summary: summary.article_summary,
-        discussion_summary: summary.discussion_summary,
-      });
-    }
-
-    // Respect rate limit: 3 req/s → wait ~400ms between Gemini calls
-    await new Promise((r) => setTimeout(r, 400));
-  }
-
-  // 3. Generate markdown
-  const markdown = generateMarkdown(today, digestItems);
-  return markdown;
+  return generateMarkdown(today, items);
 }
 
 // ── Main handler ────────────────────────────────────────────────────
