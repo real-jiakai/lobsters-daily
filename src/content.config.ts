@@ -1,4 +1,5 @@
-import { defineCollection, z } from 'astro:content';
+import { defineCollection } from 'astro:content';
+import { z } from 'astro/zod';
 import { glob } from 'astro/loaders';
 
 const digests = defineCollection({
@@ -9,8 +10,8 @@ const digests = defineCollection({
     items: z.array(
       z.object({
         title: z.string(),
-        url: z.string().url(),
-        lobsters_url: z.string().url(),
+        url: z.url(),
+        lobsters_url: z.url(),
       })
     ),
   }),
