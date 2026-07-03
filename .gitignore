@@ -3,3 +3,4 @@ dist/
 .astro/
 .wrangler/
 .dev.vars
+.DS_Store
