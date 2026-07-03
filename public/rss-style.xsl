@@ -132,9 +132,7 @@
             <div class="subscribe-box">
               <p>Subscribe to this feed by copying the URL below into your RSS reader:</p>
               <input class="feed-url" type="text" readonly="readonly">
-                <xsl:attribute name="value">
-                  <xsl:value-of select="/rss/channel/link"/>/rss.xml
-                </xsl:attribute>
+                <xsl:attribute name="value"><xsl:value-of select="/rss/channel/link"/>/rss.xml</xsl:attribute>
               </input>
             </div>
           </header>
