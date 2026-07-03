@@ -3,3 +3,5 @@ dist/
 .astro/
 .wrangler/
 .dev.vars
+.DS_Store
+worker/test-output.md
