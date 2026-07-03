@@ -2,6 +2,7 @@
   "name": "lobsters-daily",
   "type": "module",
   "version": "0.0.1",
+  "packageManager": "pnpm@10.28.2",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
@@ -11,7 +12,7 @@
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.3",
-    "astro": "^5.18.2"
+    "astro": "^7.0.6"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
