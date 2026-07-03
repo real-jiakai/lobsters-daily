@@ -3,7 +3,7 @@ interface Props {
   title: string;
   description?: string;
 }
-const { title, description = 'Daily top 10 stories from Lobsters' } = Astro.props;
+const { title, description = 'The top 10 stories on the Lobsters front page, captured daily at 23:00 UTC' } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
