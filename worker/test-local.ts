@@ -19,10 +19,11 @@ const env: Env = {
 async function main() {
   console.log('🦞 Running local digest test...\n');
 
-  const markdown = await runDigest(env);
-
   const today = new Date().toISOString().split('T')[0];
-  const outPath = join(__dirname, '..', 'src', 'content', 'digests', `${today}.md`);
+  const markdown = await runDigest(env, today);
+
+  // Deliberately NOT src/content/digests/ — never clobber the real archive.
+  const outPath = join(__dirname, 'test-output.md');
   writeFileSync(outPath, markdown, 'utf-8');
 
   console.log(`\n✅ Written to ${outPath}`);

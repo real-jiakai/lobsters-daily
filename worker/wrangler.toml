@@ -11,5 +11,8 @@ GITHUB_REPO = "real-jiakai/lobsters-daily"
 GITHUB_BRANCH = "main"
 DIGEST_TOP_N = "10"
 
-# Set this as a secret via `wrangler secret put`:
-# wrangler secret put GITHUB_TOKEN
+# Secrets, set via `wrangler secret put <NAME>`:
+#   GITHUB_TOKEN   (required) fine-grained PAT, Contents read/write on this repo only
+#   TRIGGER_TOKEN  (optional) bearer token for GET /trigger; endpoint is disabled while unset
+#   ALERT_WEBHOOK  (optional) URL POSTed a plain-text message when a digest run fails,
+#                  e.g. an https://ntfy.sh/<private-topic> for push notifications
