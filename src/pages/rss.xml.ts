@@ -55,7 +55,7 @@ export async function GET(context: APIContext) {
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Lobsters Daily</title>
-    <description>Daily top 10 stories from Lobsters</description>
+    <description>The top 10 stories on the Lobsters front page, captured daily at 23:00 UTC</description>
     <link>${site}</link>
     <atom:link href="${site}/rss.xml" rel="self" type="application/rss+xml"/>
     <language>en</language>

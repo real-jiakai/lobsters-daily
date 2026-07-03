@@ -1,6 +1,6 @@
 # 🦞 Lobsters Daily
 
-Daily list of the top 10 [Lobsters](https://lobste.rs) stories. Just the links — no summaries, no noise.
+A daily snapshot of the top 10 stories on the [Lobsters](https://lobste.rs) front page, captured at 23:00 UTC. Just the links — no summaries, no noise.
 
 Inspired by [Hacker News Daily](https://www.daemonology.net/hn-daily/).
 
